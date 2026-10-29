@@ -56,13 +56,23 @@ dialog::backdrop{background:#000a;backdrop-filter:blur(3px)}@keyframes pop{from{
 .cal{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;text-align:center}.cal button{padding:8px 0}.cal small{color:var(--mut)}.cal .rg{background:#7c8cff2e;border-color:transparent}
 tr.fc td{opacity:.68}tr.fc td:first-child{box-shadow:inset 2px 0 0 var(--acc)}tr.fc{background:repeating-linear-gradient(135deg,transparent 0 6px,#7c8cff0d 6px 12px)}
 .tag.fcg{border:1px dashed var(--acc);color:var(--acc);background:none}
+#auth{min-height:100vh;display:grid;place-items:center;padding:16px}
+#auth form{width:min(390px,100%);display:grid;gap:12px;padding:30px;animation:pop .25s ease-out}
+#auth h1{font-size:22px}#amsg{min-height:20px;font-size:13px}
 </style>
 </head>
 <body>
-<div class="w">
+<div id="auth"><form id="af" class="card">
+  <div><h1>Controle Financeiro</h1><p class="hint" style="margin:4px 0 0">Entre ou crie sua conta para acessar seus dados.</p></div>
+  <label>E-mail<input id="ae" type="email" autocomplete="username" required></label>
+  <label>Senha<input id="ap" type="password" autocomplete="current-password" minlength="6" required></label>
+  <div id="amsg" role="alert"></div>
+  <button class="pri" id="ain">Entrar</button><button type="button" id="aup">Criar conta</button>
+</form></div>
+<div class="w" id="app" hidden>
 <header><h1>Controle Financeiro</h1><div class="bar">
 <button id="pv" aria-label="Anterior">‹</button><button id="pp" style="min-width:220px" aria-label="Escolher período"></button><button id="nx" aria-label="Próximo">›</button>
-<button id="bc">Ciclo</button><button id="br">Recorrências</button><button id="bi">Importar extrato</button><input type="file" id="fi" accept=".csv,.ofx,.txt" hidden><button id="bs">● Local</button></div></header>
+<button id="bc">Ciclo</button><button id="br">Recorrências</button><button id="bi">Importar extrato</button><input type="file" id="fi" accept=".csv,.ofx,.txt" hidden><button id="lo" aria-label="Sair" style="background:none;border-color:transparent;color:var(--mut)">Sair</button></div></header>
 
 <div class="st"><div class="card"><small>Receitas realizadas</small><b class="in" id="si"></b><span class="hint" id="sip"></span></div>
 <div class="card"><small>Despesas realizadas</small><b class="out" id="so"></b><span class="hint" id="sop"></span></div>
@@ -94,7 +104,11 @@ tr.fc td{opacity:.68}tr.fc td:first-child{box-shadow:inset 2px 0 0 var(--acc)}tr
 <div id="toast" role="status"></div>
 
 <script>
-const $=s=>document.querySelector(s),K='fin.v2',KS='fin.sb',md=$('#md');
+// ===== CONFIGURAÇÃO DO SUPABASE (Project Settings → API) =====
+// Use SOMENTE a anon key (pública por desenho; a RLS protege os dados). Nunca a service_role.
+const SUPABASE_URL='https://SEU-PROJETO.supabase.co';
+const SUPABASE_ANON_KEY='SUA-ANON-KEY';
+const $=s=>document.querySelector(s),K='fin.v2',md=$('#md');
 const MES=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
 const DEF={tx:[],rules:[],del:{tx:[],rules:[]},cats:{income:['Salário','Adiantamento','Extras'],expense:['Alimentação','Moradia','Transporte','Lazer','Saúde','Outros']},cfg:{start:20,end:1,gap:'prev'}};
 let S=load(),sel,from,to,fl='all',editId=null,sb=null,IMP=[],tm;
@@ -319,8 +333,6 @@ $('#mb').onclick=e=>{
 };
 
 // ---------- Supabase (opcional) ----------
-const cfgS=()=>{try{return JSON.parse(localStorage.getItem(KS))}catch{return null}};
-function badge(){$('#bs').textContent=sb?'● Nuvem':'● Local';$('#bs').style.color=sb?'var(--in)':''}
 async function uidSb(){return(await sb.auth.getUser()).data.user.id}
 async function push(){
   if(!sb)return;
@@ -333,8 +345,8 @@ async function push(){
     if(ru.length)await run(R.upsert(ru));
     for(let i=0;i<tx.length;i+=500)await run(T.upsert(tx.slice(i,i+500)));
     await run(sb.from('categories').delete().eq('user_id',u));if(ca.length)await run(sb.from('categories').insert(ca));
-    S.del={tx:[],rules:[]};localStorage.setItem(K,JSON.stringify(S))}
-  catch(e){toast('Falha ao sincronizar: '+(e.message||e))}
+    S.del={tx:[],rules:[]};localStorage.setItem(K,JSON.stringify(S));return true}
+  catch(e){toast('Falha ao sincronizar: '+(e.message||e));return false}
 }
 async function pull(){
   const u=await uidSb(),[t,r,c]=await Promise.all([sb.from('transactions').select('*').limit(20000),sb.from('recurrences').select('*'),sb.from('categories').select('*')]);
@@ -345,27 +357,44 @@ async function pull(){
   if(c.data.length)['income','expense'].forEach(k=>S.cats[k]=c.data.filter(x=>x.type===k).map(x=>x.name));
   gen();localStorage.setItem(K,JSON.stringify(S));render();toast('Dados carregados da nuvem')
 }
-async function connect(url,key){
-  if(!window.supabase)throw Error('Biblioteca do Supabase não carregou');
-  sb=supabase.createClient(url,key);const{data}=await sb.auth.getSession();
-  if(!data.session){sb=null;return false}badge();await pull();return true
-}
-$('#bs').onclick=()=>{const c=cfgS()||{};
-  modal('Conectar ao Supabase',`<p class="hint">Cole a URL e a <b>anon key</b> do projeto (Settings → API). Elas ficam só neste navegador. Nunca use a <b>service_role</b> key aqui. Rode o <code>supabase.sql</code> antes.</p>
-  <form id="sf" style="display:grid;gap:8px"><input id="su" placeholder="https://xxxx.supabase.co" value="${esc(c.url)}"><input id="sk" placeholder="anon key" value="${esc(c.key)}">
-  <input id="se" type="email" placeholder="e-mail" autocomplete="username"><input id="sx" type="password" placeholder="senha (cria a conta se ainda não existir)" autocomplete="current-password">
-  <div class="row"><button class="pri" style="flex:1">${sb?'Reconectar':'Conectar'}</button><button type="button" id="so2">Desconectar</button></div></form>`);
-  $('#sf').onsubmit=async e=>{e.preventDefault();const url=$('#su').value.trim(),key=$('#sk').value.trim();
-    try{localStorage.setItem(KS,JSON.stringify({url,key}));sb=supabase.createClient(url,key);
-      let r=await sb.auth.signInWithPassword({email:$('#se').value,password:$('#sx').value});
-      if(r.error){r=await sb.auth.signUp({email:$('#se').value,password:$('#sx').value});if(r.error||!r.data.session)throw r.error||Error('Confirme o e-mail e entre novamente')}
-      badge();md.close();await pull()}catch(err){sb=null;badge();toast(err.message)}};
-  $('#so2').onclick=async()=>{if(sb)await sb.auth.signOut();sb=null;badge();md.close()};
-};
-
 // ---------- Início ----------
-(()=>{const t=today();sel=cycleOf({date:t});from=t.slice(0,8)+'01';to=t;gen();reset();render();
-  const c=cfgS();if(c)connect(c.url,c.key).catch(e=>toast(e.message))})();
+const t0=today();sel=cycleOf({date:t0});from=t0.slice(0,8)+'01';to=t0;gen();reset();render();
+
+// ---------- Autenticação ----------
+const cli=window.supabase&&SUPABASE_URL.includes('.supabase.co')&&!SUPABASE_URL.includes('SEU-PROJETO')?supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY):null;
+let started=false;
+const gate=on=>{$('#auth').hidden=on;$('#app').hidden=!on};
+const amsg=(m,ok)=>{$('#amsg').textContent=m||'';$('#amsg').style.color=ok?'var(--in)':'var(--out)'};
+const ERR={'Invalid login credentials':'E-mail ou senha incorretos.','User already registered':'Este e-mail já tem conta. Use “Entrar”.','Email not confirmed':'Confirme seu e-mail antes de entrar.'};
+async function auth(mode){
+  if(!cli)return amsg('Configure SUPABASE_URL e SUPABASE_ANON_KEY no topo do script.');
+  const email=$('#ae').value.trim(),password=$('#ap').value;
+  if(!email||password.length<6)return amsg('Informe e-mail e uma senha com pelo menos 6 caracteres.');
+  amsg('');$('#ain').disabled=$('#aup').disabled=true;
+  const r=mode==='in'?await cli.auth.signInWithPassword({email,password}):await cli.auth.signUp({email,password});
+  $('#ain').disabled=$('#aup').disabled=false;
+  if(r.error)return amsg(ERR[r.error.message]||r.error.message);
+  if(mode==='up'&&!r.data.session)amsg('Conta criada! Confirme o e-mail e depois clique em “Entrar”.',true);
+}
+$('#af').onsubmit=e=>{e.preventDefault();auth('in')};$('#aup').onclick=()=>auth('up');
+async function enter(ses){
+  started=true;sb=cli;$('#lo').title='Sair ('+ses.user.email+')';gate(true);
+  try{await pull()}catch(e){toast('Erro ao carregar dados: '+(e.message||e))}
+  render();c1.resize();c2.resize();
+}
+function out(){ // limpa dados da sessão deste aparelho; só a preferência de ciclo permanece
+  started=false;sb=null;clearTimeout(tm);SEL.clear();if(md.open)md.close();
+  const cfg=S.cfg;S=structuredClone(DEF);S.cfg=cfg;
+  try{localStorage.setItem(K,JSON.stringify({cfg}));localStorage.removeItem('fin.v1')}catch{}
+  $('#ap').value='';amsg('');render();gate(false);
+}
+$('#lo').onclick=async()=>{clearTimeout(tm);
+  if(await push()===false)return ask('Sair mesmo assim?','Algumas alterações não foram sincronizadas e serão perdidas ao sair.',()=>cli.auth.signOut());
+  cli.auth.signOut()};
+if(!cli)amsg('Configure SUPABASE_URL e SUPABASE_ANON_KEY no topo do script.');
+else cli.auth.onAuthStateChange((ev,ses)=>{ // dispara também ao recarregar a página, restaurando a sessão salva
+  if(ses&&!started)setTimeout(()=>enter(ses),0);
+  if(!ses&&started)out()});
 </script>
 </body>
 </html>
