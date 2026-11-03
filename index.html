@@ -108,7 +108,7 @@ tfoot th{color:var(--ink);padding:10px 8px;border-top:1px solid var(--bd)}
 .sc:first-child b{font-size:clamp(24px,12cqw,42px)}
 .cu{font-style:normal;font-size:.48em;font-weight:500;color:var(--mut);margin-right:5px;letter-spacing:0}
 .sc .hint{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.mv{white-space:nowrap}.mv button{padding:3px 9px}
+#ts-bh{white-space:normal!important;line-height:1.35}.ibox{border:1px solid var(--bd);border-radius:10px;padding:8px 10px;margin-bottom:10px;font-size:13px}.ibox button{margin-left:6px}.mv{white-space:nowrap}.mv button{padding:3px 9px}
 .srch{position:relative;display:flex;gap:8px;margin-bottom:10px}
 .srch svg{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--mut);pointer-events:none}
 .srch input{flex:1;padding:11px 12px 11px 38px;font-size:15px;border-radius:10px}
@@ -156,13 +156,14 @@ th .srt{font-weight:500}th .srt.on{color:var(--ink)}
 <div class="g"><div class="card"><h2>Frequência de gastos <span class="hint">· por dia do mês</span></h2><div class="ch" style="height:220px"><canvas id="cf"></canvas></div></div><div class="card"><h2>Dias com mais gastos</h2><table style="min-width:0"><thead id="ft-h"><tr><th><button class="srt" data-s="d" aria-label="Ordenar por dia">Dia <i>↕</i></button></th><th class="v"><button class="srt" data-s="v" aria-label="Ordenar por valor">Valor <i>↕</i></button></th></tr></thead><tbody id="ft-t"></tbody></table></div></div>
 <div class="g"><div class="card"><h2>Receitas previstas / pendentes</h2><div class="tw"><table style="min-width:300px"><tbody id="pd-i"></tbody></table></div></div><div class="card"><h2>Despesas previstas / pendentes</h2><div class="tw"><table style="min-width:300px"><tbody id="pd-o"></tbody></table></div></div></div>
 </section><section data-view="tx" hidden>
-<div class="bar txa"><button class="nb out" id="bnd"><span class="ic"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12l7 7 7-7"/></svg></span>Nova despesa</button><button class="nb in" id="bni"><span class="ic"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg></span>Nova receita</button><span style="flex:1"></span><button id="bcc">Importar fatura de cartão</button><button id="bi">Importar extrato</button><input type="file" id="fi" accept=".csv,.ofx,.txt" hidden></div>
+<div class="bar txa"><button class="nb out" id="bnd"><span class="ic"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12l7 7 7-7"/></svg></span>Nova despesa</button><button class="nb in" id="bni"><span class="ic"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg></span>Nova receita</button><span style="flex:1"></span><button id="bsa" title="Registrar o saldo real da conta numa data (ponto de referência do saldo)">Saldo conferido</button><button id="bcc">Importar fatura de cartão</button><button id="bi">Importar extrato</button><input type="file" id="fi" accept=".csv,.ofx,.txt" hidden></div>
 <div class="sum" id="tx-sum">
 <div class="sc"><small><span class="dot">R$</span>Saldo atual</small><b id="ts-b"></b><span class="hint" id="ts-bh"></span></div>
 <div class="sc"><small><span class="dot in">↑</span>Total de receitas</small><b class="in" id="ts-i"></b><span class="hint" id="ts-ih"></span></div>
 <div class="sc"><small><span class="dot out">↓</span>Total de despesas</small><b class="out" id="ts-o"></b><span class="hint" id="ts-oh"></span></div>
 <div class="sc"><small><span class="dot">=</span><span id="ts-ml">Balanço mensal</span></small><b id="ts-m"></b><span class="hint" id="ts-mh"></span></div>
 </div>
+<p class="hint" id="ts-x" style="margin:-4px 2px 12px"></p>
 <div class="card">
 <div class="bar" style="justify-content:space-between;margin-bottom:10px"><h2 style="margin:0">Transações</h2>
 <div class="tabs" id="fts" style="margin:0"><button data-fl="all" class="pri">Todas</button><button data-fl="expense">Despesas</button><button data-fl="income">Receitas</button></div></div>
@@ -221,14 +222,27 @@ const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYm
 const $=s=>document.querySelector(s),K='fin.v2',md=$('#md');
 if(!window.Chart){document.body.innerHTML='<p style="padding:24px;color:#e8eaf0;font:16px system-ui">Não foi possível carregar o Chart.js (CDN). Verifique sua conexão e recarregue a página.</p>';throw new Error('Chart.js ausente')}
 const MES=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+const XCAT='Transferência entre contas',ACAT='Saldo conferido'; // categorias reservadas (não exigem coluna nova no banco)
+const isA=t=>t.cat===ACAT,isX=t=>t.cat===XCAT,isSp=t=>isA(t)||isX(t);
+const sgn=t=>t.type==='income'?t.amount:-t.amount,r2=v=>Math.round(v*100)/100;
+const fixCats=s=>['income','expense'].forEach(k=>{if(!s.cats[k].includes(XCAT))s.cats[k].push(XCAT)});
 const DEF={bud:{},tx:[],rules:[],del:{tx:[],rules:[]},cats:{income:['Salário','Adiantamento','Extras'],expense:['Alimentação','Moradia','Transporte','Lazer','Saúde','Outros']},cfg:{start:20,end:1,gap:'prev'}};
 let S=load(),sel,from,to,fl='all',editId=null,sb=null,IMP=[],tm;
-function load(){try{const r=JSON.parse(localStorage.getItem(K)||localStorage.getItem('fin.v1'));const s=r?{...structuredClone(DEF),...r}:structuredClone(DEF);s.tx.forEach(t=>{t.id=String(t.id);t.note??=''});return s}catch{return structuredClone(DEF)}}
+function load(){try{const r=JSON.parse(localStorage.getItem(K)||localStorage.getItem('fin.v1'));const s=r?{...structuredClone(DEF),...r}:structuredClone(DEF);s.tx.forEach(t=>{t.id=String(t.id);t.note??=''});s.sig??={};fixCats(s);return s}catch{const s=structuredClone(DEF);s.sig={};fixCats(s);return s}}
 let ver=0,GC=null,RL=200;
 function save(){ver++;S.dirty=true;GC=null;try{localStorage.setItem(K,JSON.stringify(S))}catch{}try{localStorage.setItem('fin.ord',JSON.stringify(Object.fromEntries(S.tx.filter(t=>t.ord!=null).map(t=>[t.id,t.ord]))))}catch{}clearTimeout(tm);tm=setTimeout(push,700)}
-const chrono=(x,y)=>x.date.localeCompare(y.date)||(x.ord??-1)-(y.ord??-1)||x.id.localeCompare(y.id); // ordem cronológica real (data, depois ordem manual do dia)
+const chrono=(x,y)=>x.date.localeCompare(y.date)||(isA(x)?1:0)-(isA(y)?1:0)||(x.ord??-1)-(y.ord??-1)||x.id.localeCompare(y.id); // ordem cronológica real (data, depois ordem manual do dia)
 const nextOrd=(d,ex)=>S.tx.reduce((m,x)=>x.date===d&&x!==ex&&x.ord!=null?Math.max(m,x.ord):m,-1)+1;
-const grp=k=>(GC||(GC=(()=>{const m=new Map();S.tx.forEach(t=>cyclesOf(t).forEach(c=>(m.get(c)||m.set(c,[]).get(c)).push(t)));return m})())).get(k)||[];
+const TA=()=>S.tx.filter(t=>!isSp(t)); // base de totais: sem transferências próprias e sem saldos conferidos
+let DF={},REFA=null;
+// Saldo acumulado: todos os lançamentos em ordem cronológica, calibrado pelo "saldo conferido" MAIS RECENTE.
+// Assim, importar meses antigos depois não desloca os saldos dos meses novos (o ponto de referência é fixo).
+function balAll(bm){const all=[...S.tx].sort(chrono),cA={};let cum=0,off=0,R=null;DF={};
+  all.forEach(t=>{if(isA(t)){cA[t.id]=cum;off=r2(sgn(t)-cum);R=t}else{cum=r2(cum+sgn(t));bm[t.id]=cum}});REFA=R?R.id:null;
+  all.forEach(t=>{if(isA(t)){bm[t.id]=sgn(t);DF[t.id]=r2(sgn(t)-r2(cA[t.id]+off))}else bm[t.id]=r2(bm[t.id]+off)})}
+function refOff(){let cum=0,off=0,has=false,rd='';[...S.tx].sort(chrono).forEach(t=>{if(isA(t)){off=r2(sgn(t)-cum);has=true;rd=t.date}else if(!isFc(t))cum=r2(cum+sgn(t))});return{off,has,rd}}
+const ancB=t=>{if(!isA(t))return'';const d=DF[t.id];return t.id===REFA?' <span class="tag" title="Saldo de referência: o saldo de todos os lançamentos é calculado a partir dele">◎ referência</span>':d===0?' <span class="tag" style="color:var(--in)" title="O saldo calculado pelos lançamentos bate com este saldo conferido">✓ confere</span>':` <span class="tag" style="color:var(--out)" title="O saldo calculado difere deste saldo conferido: provavelmente faltam ou sobram lançamentos entre este saldo e o de referência">⚠ Δ ${brl(d)}</span>`};
+const grp=k=>(GC||(GC=(()=>{const m=new Map();TA().forEach(t=>cyclesOf(t).forEach(c=>(m.get(c)||m.set(c,[]).get(c)).push(t)));return m})())).get(k)||[];
 const brl=v=>v.toLocaleString('pt-BR',{style:'currency',currency:'BRL'}),pad=n=>String(n).padStart(2,'0'),key=(y,m)=>y+'-'+pad(m);
 const addM=(k,n)=>{const[y,m]=k.split('-').map(Number),t=y*12+m-1+n;return key(Math.floor(t/12),t%12+1)};
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -279,12 +293,12 @@ let keys=[],cm='expense';
 const DS=(l,c,st,f)=>({label:l,data:[],stack:st,backgroundColor:f?c+'33':c,borderColor:c,borderWidth:f?1.5:0,borderDash:f?[5,4]:[],borderRadius:6});
 const c1=new Chart($('#c1'),{type:'bar',data:{labels:[],datasets:[DS('Receitas','#34d399','r'),DS('Receitas previstas','#34d399','r',1),DS('Despesas','#fb7185','d'),DS('Despesas previstas','#fb7185','d',1)]},
   options:{onClick:(e,el)=>{if(!el.length)return;const{datasetIndex:d,index:i}=el[0],t=d<2?'income':'expense',f=d%2===1,k=keys[i];
-    detail(`${t==='income'?'Receitas':'Despesas'}${f?' previstas':''} · ${shortL(k)}`,(sel==='free'?S.tx.filter(inP):S.tx).filter(x=>x.type===t&&isFc(x)===f&&cyclesOf(x).includes(k)))},
+    detail(`${t==='income'?'Receitas':'Despesas'}${f?' previstas':''} · ${shortL(k)}`,(sel==='free'?TA().filter(inP):TA()).filter(x=>x.type===t&&isFc(x)===f&&cyclesOf(x).includes(k)))},
     plugins:{tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${brl(c.parsed.y)}`}}},scales:{x:{stacked:true},y:{stacked:true,beginAtZero:true,ticks:{callback:v=>'R$ '+v}}}}});
 const PAL=['#7c8cff','#34d399','#fbbf24','#fb7185','#38bdf8','#c084fc','#fb718566','#94a3b8'];
 const c2=new Chart($('#c2'),{type:'doughnut',data:{labels:[],datasets:[{label:'Realizado',data:[],backgroundColor:PAL,borderColor:'#101218',borderWidth:2},{label:'Previsão',data:[],backgroundColor:PAL.map(c=>c+'40'),borderColor:PAL,borderWidth:1.5,borderDash:[4,3]}]},
   options:{cutout:'58%',onClick:(e,el)=>{if(!el.length)return;const c=c2.data.labels[el[0].index],f=el[0].datasetIndex===1;
-    detail(`${cm==='income'?'Receitas':'Despesas'}${f?' previstas':''} · ${c}`,S.tx.filter(t=>inP(t)&&t.type===cm&&t.cat===c&&isFc(t)===f))},
+    detail(`${cm==='income'?'Receitas':'Despesas'}${f?' previstas':''} · ${c}`,TA().filter(t=>inP(t)&&t.type===cm&&t.cat===c&&isFc(t)===f))},
     plugins:{legend:{position:'right'},tooltip:{callbacks:{label:c=>` ${c.dataset.label}: ${c.label} · ${brl(c.parsed)} · ${pc(c)}`}}}}});
 
 // ---------- Modal ----------
@@ -302,7 +316,7 @@ function render(){
   TD=today();GC=null;
   $('#pp').textContent=sel==='all'?'Histórico completo':sel==='free'?`${fd(from)} – ${fd(to)}`:longL(sel);
   $('#pv').disabled=$('#nx').disabled=['all','free'].includes(sel);
-  const base=S.tx.filter(inP),R=base.filter(t=>!isFc(t)),F=base.filter(isFc);
+  const base=TA().filter(inP),R=base.filter(t=>!isFc(t)),F=base.filter(isFc);
   const inc=sum(R,'income'),exp=sum(R,'expense'),bal=inc-exp,pi=sum(F,'income'),pe=sum(F,'expense');
   $('#si').textContent=brl(inc);$('#so').textContent=brl(exp);$('#sb').textContent=brl(bal);$('#sb').className=bal<0?'out':'in';
   $('#sip').textContent=pi?'+ '+brl(pi)+' previstos':'';$('#sop').textContent=pe?'+ '+brl(pe)+' previstos':'';
@@ -313,20 +327,20 @@ function render(){
   let a=sel==='all'?cycleOf({date:TD}):sel==='free'?cycleOf({date:to||TD}):sel,n=6;
   if(sel==='free'&&from){const[y1,m1]=cycleOf({date:from}).split('-').map(Number),[y2,m2]=a.split('-').map(Number);n=Math.min(12,Math.max(1,(y2*12+m2)-(y1*12+m1)+1))}
   keys=Array.from({length:n},(_,i)=>addM(a,i-n+1));
-  const src=sel==='free'?base:S.tx;c1.data.labels=keys.map(shortL);
+  const src=sel==='free'?base:TA();c1.data.labels=keys.map(shortL);
   const kg=Object.fromEntries(keys.map(k=>[k,sel==='free'?base.filter(x=>cyclesOf(x).includes(k)):grp(k)]));c1.data.datasets.forEach((d,i)=>d.data=keys.map(k=>sum(kg[k].filter(x=>isFc(x)===(i%2===1)),i<2?'income':'expense')));if(V==='dash')c1.update();
   const m=f=>{const o={};base.filter(t=>t.type===cm&&isFc(t)===f).forEach(t=>o[t.cat]=(o[t.cat]||0)+t.amount);return o},a1=m(false),a2=m(true),lb=[...new Set([...Object.keys(a1),...Object.keys(a2)])];
   c2.data.labels=lb;c2.data.datasets[0].data=lb.map(l=>a1[l]||0);c2.data.datasets[1].data=lb.map(l=>a2[l]||0);if(V==='dash')c2.update();
   $('#h2').textContent=(cm==='income'?'Receitas':'Despesas')+' por categoria';
   document.querySelectorAll('#cmt button').forEach(b=>b.classList.toggle('pri',b.dataset.cm===cm));
 
-  const bm=BM={};let acc=0;(V==='tx'?[...S.tx]:[]).sort(chrono).forEach(t=>{acc=Math.round((acc+(t.type==='income'?t.amount:-t.amount))*100)/100;bm[t.id]=acc});
+  const bm=BM={};if(V==='tx')balAll(bm);
   const rows=V==='tx'?txRows():[];
-  const pos={};{const g={};rows.forEach(t=>(g[t.date]||(g[t.date]=[])).push(t));Object.values(g).forEach(l=>{l.sort((x,y)=>chrono(y,x));l.forEach((t,i)=>pos[t.id]=[i>0,i<l.length-1])})}
-  $('#rows').innerHTML=rows.slice(0,RL).map(t=>{const f=isFc(t),i=t.type==='income',[mu,mdn]=pos[t.id]||[0,0];return `<tr class="${f?'fc':''}"><td><input type="checkbox" data-s="${t.id}" ${SEL.has(t.id)?'checked':''} aria-label="Selecionar"></td><td class="mv"><button data-up="${t.id}" ${mu?'':'disabled'} aria-label="Mover para cima" title="${mu?'Mover para cima (mais tarde no dia)':'Já é o último do dia (ou o único lançamento deste dia)'}">↑</button><button data-dn="${t.id}" ${mdn?'':'disabled'} aria-label="Mover para baixo" title="${mdn?'Mover para baixo (mais cedo no dia)':'Já é o primeiro do dia (ou o único lançamento deste dia)'}">↓</button></td><td>${fd(t.date)}</td>
+  const pos={};{const g={};rows.filter(t=>!isA(t)).forEach(t=>(g[t.date]||(g[t.date]=[])).push(t));Object.values(g).forEach(l=>{l.sort((x,y)=>chrono(y,x));l.forEach((t,i)=>pos[t.id]=[i>0,i<l.length-1])})}
+  $('#rows').innerHTML=rows.slice(0,RL).map(t=>{const f=isFc(t)&&!isA(t),i=t.type==='income',[mu,mdn]=pos[t.id]||[0,0];return `<tr class="${f?'fc':''}"><td><input type="checkbox" data-s="${t.id}" ${SEL.has(t.id)?'checked':''} aria-label="Selecionar"></td><td class="mv"><button data-up="${t.id}" ${mu?'':'disabled'} aria-label="Mover para cima" title="${mu?'Mover para cima (mais tarde no dia)':'Já é o último do dia (ou o único lançamento deste dia)'}">↑</button><button data-dn="${t.id}" ${mdn?'':'disabled'} aria-label="Mover para baixo" title="${mdn?'Mover para baixo (mais cedo no dia)':'Já é o primeiro do dia (ou o único lançamento deste dia)'}">↓</button></td><td>${fd(t.date)}</td>
     <td>${esc(t.desc)}${t.rule?' <span class="hint" title="Recorrente">↻</span>':''}${f?' <span class="tag fcg">Previsão</span>':''}${t.note?`<div class="nt">${esc(t.note)}</div>`:''}</td>
-    <td><select class="${i?'in':'out'}" data-c="${t.id}" aria-label="Categoria">${opts(t.type,t.cat)}</select></td><td>${tag(t.type)}</td>
-    <td class="v ${i?'in':'out'}">${i?'+':'−'} ${brl(t.amount)}</td><td class="v ${bm[t.id]<0?'out':''}">${f?'~ ':''}${brl(bm[t.id])}</td>
+    <td>${isA(t)?'<span class="hint">Saldo conferido</span>':`<select class="${i?'in':'out'}" data-c="${t.id}" aria-label="Categoria">${opts(t.type,t.cat)}</select>`}</td><td>${isA(t)?'<span class="tag">Saldo</span>':isX(t)?'<span class="tag" title="Fora de receitas e despesas; conta só no saldo">↔ Transferência</span>':tag(t.type)}</td>
+    <td class="v ${i?'in':'out'}">${isA(t)?'= '+brl(sgn(t)):(i?'+':'−')+' '+brl(t.amount)}</td><td class="v ${bm[t.id]<0?'out':''}">${f?'~ ':''}${brl(bm[t.id])}${ancB(t)}</td>
     <td style="white-space:nowrap">${f?`<button data-ok="${t.id}" title="Efetivar: passa a contar como realizada">Confirmar</button> `:''}<button data-e="${t.id}">Editar</button> <button data-d="${t.id}">Excluir</button></td></tr>`}).join('')
     ||'<tr><td colspan="9" class="empty">Nenhuma transação encontrada para este período ou busca. Use “Nova despesa” ou “Nova receita”.</td></tr>';
   const vis=new Set(rows.map(t=>t.id));SEL.forEach(id=>vis.has(id)||SEL.delete(id)); // seleção só vale para o que está visível
@@ -335,7 +349,7 @@ function render(){
   const cv=$('#fc').value;$('#fc').innerHTML='<option value="">Todas as categorias</option>'+[...new Set([...S.cats.expense,...S.cats.income])].map(c=>`<option${c===cv?' selected':''}>${esc(c)}</option>`).join('');
   if(rows.length>RL)$('#rows').insertAdjacentHTML('beforeend',`<tr><td colspan="9" class="empty"><button id="more">Mostrar mais (${rows.length-RL} restantes)</button></td></tr>`);
   if(V==='tx')document.querySelectorAll('#tx-h [data-ts]').forEach(b=>{const on=b.dataset.ts===TS.k;b.classList.toggle('on',on);b.querySelector('i').textContent=on?(TS.d>0?'↑':'↓'):'↕';b.closest('th').setAttribute('aria-sort',on?(TS.d>0?'ascending':'descending'):'none')});
-  $('#tsum').innerHTML=`${rows.length} item(ns) · Receitas <b class="in">${brl(sum(rows,'income'))}</b> · Despesas <b class="out">${brl(sum(rows,'expense'))}</b> · Saldo <b>${brl(sum(rows,'income')-sum(rows,'expense'))}</b>`;
+  const rr=rows.filter(t=>!isSp(t));$('#tsum').innerHTML=`${rows.length} item(ns) · Receitas <b class="in">${brl(sum(rr,'income'))}</b> · Despesas <b class="out">${brl(sum(rr,'expense'))}</b> · Saldo <b>${brl(sum(rr,'income')-sum(rr,'expense'))}</b>`;
   $('#bk').innerHTML='<option value="">Alterar categoria…</option>'+['expense','income'].map(ty=>`<optgroup label="${ty==='income'?'Receitas':'Despesas'}">${S.cats[ty].map(c=>`<option value="${ty}|${esc(c)}">${esc(c)}</option>`).join('')}</optgroup>`).join('');
 }
 
@@ -381,11 +395,11 @@ $('#rows').onchange=e=>{const d=e.target.dataset;
 $('#ma').onchange=e=>{txRows().forEach(t=>e.target.checked?SEL.add(t.id):SEL.delete(t.id));render()};
 $('#bx').onclick=()=>ask('Excluir selecionadas',`Excluir ${SEL.size} transação(ões)? Não dá para desfazer.`,()=>{[...SEL].forEach(delTx);save();render()});
 $('#bk').onchange=e=>{const v=e.target.value,i=v.indexOf('|'),t=v.slice(0,i),c=v.slice(i+1);let n=0;
-  S.tx.forEach(x=>{if(SEL.has(x.id)&&x.type===t){x.cat=c;if(x.rule)x.ov=true;n++}});save();render();toast(n?n+' recategorizada(s)':'Nenhuma selecionada é desse tipo')};
+  S.tx.forEach(x=>{if(SEL.has(x.id)&&x.type===t&&!isA(x)){x.cat=c;if(x.rule)x.ov=true;n++}});save();render();toast(n?n+' recategorizada(s)':'Nenhuma selecionada é desse tipo')};
 $('#rows').onclick=e=>{
   const{e:ed,d:dl,ok,up,dn}=e.target.dataset;if(up||dn)return moveTx(up||dn,up?-1:1);
   if(ok){confirmTx(ok);return}
-  if(ed){const t=S.tx.find(x=>x.id===ed);reset();editId=t.id;document.getElementById(t.type==='income'?'ti':'to').checked=true;fillC(t.cat);
+  if(ed){const t=S.tx.find(x=>x.id===ed);if(isA(t))return openAnchor(t);reset();editId=t.id;document.getElementById(t.type==='income'?'ti':'to').checked=true;fillC(t.cat);
     $('#ds').value=t.desc;$('#am').value=fm(t.amount);setD($('#dt'),t.date);$('#nt').value=t.note||'';$('#ov').value=t.cycle||'';$('#fcb').checked=!!t.fc;
     $('#rp').hidden=true;$('#sc').hidden=!t.rule;document.querySelector('[name=sc]').checked=true;$('#tm details').open=!!(t.fc||t.cycle);skin();$('#tm').showModal();$('#ds').focus()}
   if(dl){const t=S.tx.find(x=>x.id===dl);ask('Excluir transação',`Excluir “${esc(t.desc)}”?`,()=>{delTx(dl);save();render()})}
@@ -416,11 +430,19 @@ function rulesUI(){
   modal('Recorrências',(S.rules.map(r=>`<div class="rr" data-r="${r.id}">${tag(r.type)}<input class="rd" value="${esc(r.desc)}" aria-label="Descrição"><input class="ra mk" inputmode="numeric" value="${fm(r.amount)}" aria-label="Valor">
   <select class="rc">${opts(r.type,r.cat)}</select><input class="rn" type="number" min="0" value="${r.n}" title="Repetições (0 = infinito)"><span class="hint">dia ${r.day}</span><button data-rs>Salvar</button><button data-rx>Excluir</button></div>`).join('')||'<p class="empty">Nenhuma recorrência. Escolha “Repetir” ao criar uma transação.</p>')+'<p class="hint">Salvar recria as ocorrências que você não editou. Excluir remove as ocorrências ainda não editadas.</p>');
 }
+// ---------- Saldo conferido ----------
+function setAnchor(date,v,note){S.tx.filter(t=>isA(t)&&t.date===date).forEach(t=>S.del.tx.push(t.id));S.tx=S.tx.filter(t=>!(isA(t)&&t.date===date));
+  S.tx.push({id:uid(),type:v<0?'expense':'income',desc:'Saldo conferido',amount:Math.abs(v),date,cat:ACAT,note:note||'',fc:false})}
+function openAnchor(t){modal(t?'Editar saldo conferido':'Saldo conferido',`<div class="row" style="gap:10px;flex-wrap:wrap"><label style="flex:1;min-width:150px">Data (fim do dia)<input id="ad" type="date" value="${t?t.date:TD}"></label><label style="flex:1;min-width:150px">Saldo da conta nessa data<input id="av" inputmode="decimal" placeholder="0,00" value="${t?fm(sgn(t)):''}"></label></div>
+  <p class="hint">Use o saldo que o banco mostra no extrato. Ele vira o ponto de referência: o saldo acumulado de todos os lançamentos (antes e depois dessa data) é calculado a partir dele e continua certo conforme você importa meses anteriores. Com mais de uma conta ativa nessa data, informe a <b>soma</b> dos saldos. Transferências entre contas próprias não alteram o total.</p>
+  <div class="row"><button class="pri" data-anc="${t?t.id:''}">Salvar</button></div>`)}
+$('#bsa').onclick=()=>openAnchor();
 // ---------- Importação OFX/CSV ----------
 const num=s=>{s=String(s).replace(/[^\d,.\-]/g,'');s=s.includes(',')&&(!s.includes('.')||s.lastIndexOf(',')>s.lastIndexOf('.'))?s.replace(/\./g,'').replace(',','.'):s.replace(/,/g,'');return parseFloat(s)};
 const pd=s=>{s=(s||'').trim();let m=s.match(/^(\d{2})\/(\d{2})\/(\d{4})/);if(m)return `${m[3]}-${m[2]}-${m[1]}`;m=s.match(/^(\d{4})-(\d{2})-(\d{2})/);return m?m[0]:''};
 function parseOFX(s){return[...s.matchAll(/<STMTTRN>([\s\S]*?)(?=<\/STMTTRN>|<STMTTRN>|<\/BANKTRANLIST>|$)/gi)].map(m=>{const g=t=>(m[1].match(new RegExp('<'+t+'>([^<\\r\\n]*)','i'))||[])[1]?.trim(),d=g('DTPOSTED')||'';
-  return{date:`${d.slice(0,4)}-${d.slice(4,6)}-${d.slice(6,8)}`,amount:num(g('TRNAMT')),desc:g('MEMO')||g('NAME')||'Lançamento'}})}
+  return{date:`${d.slice(0,4)}-${d.slice(4,6)}-${d.slice(6,8)}`,amount:num(g('TRNAMT')),desc:g('MEMO')||g('NAME')||'Lançamento',fitid:g('FITID')||''}})}
+function ofxMeta(s){const b=s.match(/<LEDGERBAL>[\s\S]*?<BALAMT>([^<\r\n]*)[\s\S]*?<DTASOF>(\d{4})(\d{2})(\d{2})/i),v=b?num(b[1]):NaN;return isFinite(v)?{bal:v,balDate:`${b[2]}-${b[3]}-${b[4]}`}:{}}
 function parseCSV(s){
   const L=s.split(/\r?\n/).filter(x=>x.trim()),dl=(L[0].match(/;/g)||[]).length>=(L[0].match(/,/g)||[]).length?';':',';
   const sp=l=>{const o=[];let c='',q=false;for(const ch of l){if(ch=='"')q=!q;else if(ch==dl&&!q){o.push(c);c=''}else c+=ch}o.push(c);return o.map(x=>x.trim())};
@@ -432,37 +454,98 @@ const KW={Alimentação:['mercado','supermerc','padaria','ifood','restaurante','
 function guess(desc,t){const d=desc.toLowerCase(),h=S.tx.find(x=>x.type===t&&x.desc.toLowerCase()===d);if(h)return h.cat;
   for(const[c,w]of Object.entries(KW))if(S.cats[t].includes(c)&&w.some(x=>d.includes(x)))return c;return S.cats[t].includes('Outros')?'Outros':S.cats[t][0]}
 $('#bi').onclick=()=>$('#fi').click();
+// ----- Importação mês a mês: cada lançamento ganha um id determinístico (mesma transação => mesmo id => nunca duplica) -----
+let IMPM={bank:localStorage.getItem('fin.bank')||'',me:localStorage.getItem('fin.me')||'',raw:[],meta:{},anc:{on:false,v:'',d:''},card:false};
+const nzd=s=>nz(s).replace(/\s+/g,' ').trim(),dd=(a,b)=>Math.abs(new Date(a)-new Date(b))/864e5;
+const dflt=t=>S.cats[t].includes('Outros')?'Outros':S.cats[t].find(c=>c!==XCAT);
+const isImpTx=t=>/^Importado/.test(t.note||'')||/ · (compra|parcela projetada)/.test(t.note||'');
+function hid(str){const h=[0x811c9dc5,0x1b873593,0xcc9e2d51,0x85ebca6b];
+  for(let i=0;i<str.length;i++){const c=str.charCodeAt(i);for(let j=0;j<4;j++){h[j]=Math.imul(h[j]^(c+j*31),j%2?0x01000193:0x85ebca6b);h[j]^=h[j]>>>13}}
+  const x=h.map(v=>(v>>>0).toString(16).padStart(8,'0')).join('');return `${x.slice(0,8)}-${x.slice(8,12)}-5${x.slice(13,16)}-a${x.slice(17,20)}-${x.slice(20,32)}`}
+const TW=/transfer|pix|\bted\b|\bdoc\b|enviad|recebid|envio/i,BK=/nubank|nu pagamentos|banco next|\bnext\b/i;
+function classify(rows,bank,me){
+  const ex=S.tx.filter(t=>!isA(t)),ids=new Set(S.tx.map(t=>t.id)),cnt=new Map(),key=t=>t.date+'|'+t.type+'|'+t.amount.toFixed(2)+'|'+nzd(t.desc),myN=nzd(me||'');
+  ex.forEach(t=>cnt.set(key(t),(cnt.get(key(t))||0)+1));
+  const man=ex.filter(t=>!isImpTx(t)),used=new Set(),occ=new Map();
+  rows.forEach(r=>{ // 1) id idêntico  2) mesmo dia/valor/descrição (importações antigas, multiconjunto)  3) lançamento manual/previsão parecido (±3 dias)
+    const base=r.key||`${bank}|${r.fitid||''}|${r.date}|${r.type}|${r.amount.toFixed(2)}|${nzd(r.desc)}`,n=occ.get(base)||0,k=key(r);occ.set(base,n+1);
+    r.id=hid(base+'|'+n);r.st='new';r.on=true;r.xs=0;r.ref=null;r.pr=null;r.prn=false;
+    if(ids.has(r.id)){r.st='dup';r.on=false;if(cnt.get(k)>0)cnt.set(k,cnt.get(k)-1);return}
+    if((cnt.get(k)||0)>0){cnt.set(k,cnt.get(k)-1);r.st='dup';r.on=false;return}
+    const sm=man.find(t=>!used.has(t.id)&&t.type===r.type&&Math.abs(t.amount-r.amount)<.005&&dd(t.date,r.date)<=3);
+    if(sm){used.add(sm.id);r.st='sim';r.on=false;r.ref=sm}});
+  const pool=[...ex,...rows]; // transferências entre contas próprias: nome do titular, contraparte (mesmo valor, sentido oposto, ±1 dia) ou palavras-chave
+  rows.forEach(r=>{if(r.st==='dup')return;
+    const tw=TW.test(r.desc),bk=BK.test(r.desc),mine=myN.length>4&&nzd(r.desc).includes(myN),
+      pr=pool.find(o=>o!==r&&o.st!=='dup'&&!isA(o)&&o.type!==r.type&&Math.abs(o.amount-r.amount)<.005&&dd(o.date,r.date)<=3)||null,
+      near=!!pr&&dd(pr.date,r.date)<=1,pairTW=!!pr&&(tw||TW.test(pr.desc));
+    r.pr=pr;r.prn=near;
+    if(mine||(pr&&isX(pr)&&near)||(near&&tw&&pr&&TW.test(pr.desc)))r.xs=2;else if(pairTW||(tw&&bk))r.xs=1;
+    if(r.xs===2){r.cat0=r.cat;r.cat=XCAT}});
+  return rows}
+function prepImport(raw){
+  const rows=raw.filter(r=>r.date&&isFinite(r.amount)&&r.amount!==0).map(r=>{const type=r.amount>0?'income':'expense',g=guess(r.desc,type);return{date:r.date,desc:r.desc,amount:Math.abs(r.amount),type,cat:g===XCAT?dflt(type):g,fitid:r.fitid,key:r.key,note:r.note,fc:r.fc}});
+  if(rows.length>1&&rows[0].date>rows[rows.length-1].date)rows.reverse(); // extrato do mais novo para o mais antigo: lê em ordem cronológica
+  return classify(rows,IMPM.bank||'conta',IMPM.me)}
 $('#fi').onchange=async e=>{
   const f=e.target.files[0];e.target.value='';if(!f)return;
-  try{const s=await f.text(),raw=/<STMTTRN>/i.test(s)?parseOFX(s):parseCSV(s),seen=new Set(S.tx.map(t=>t.date+t.amount+t.desc.toLowerCase()));
-    IMP=raw.filter(r=>r.date&&isFinite(r.amount)&&r.amount!==0).map(r=>{const type=r.amount>0?'income':'expense';return{date:r.date,desc:r.desc,amount:Math.abs(r.amount),type,cat:guess(r.desc,type),on:!seen.has(r.date+Math.abs(r.amount)+r.desc.toLowerCase())}});
-    if(!IMP.length)throw Error('Nenhum lançamento encontrado');impUI()}catch(err){toast('Erro: '+err.message)}
+  try{const s=await f.text(),ofx=/<STMTTRN>/i.test(s);IMPM.raw=ofx?parseOFX(s):parseCSV(s);IMPM.meta=ofx?ofxMeta(s):{};IMPM.card=false;
+    const m=IMPM.meta,ds=IMPM.raw.map(r=>r.date).filter(Boolean).sort();
+    IMPM.anc=m.bal!=null?{on:true,v:fm(m.bal),d:m.balDate}:{on:false,v:'',d:ds[ds.length-1]||''};
+    IMP=prepImport(IMPM.raw);if(!IMP.length)throw Error('Nenhum lançamento encontrado');impUI()}catch(err){toast('Erro: '+err.message)}
 };
+function covHTML(){const cn={},inF=new Set(IMP.map(r=>r.date.slice(0,7)));TA().forEach(t=>{const m=t.date.slice(0,7);cn[m]=(cn[m]||0)+1});
+  const ks=Object.keys(cn).sort(),a0=ks.length&&ks[0]<'2024-01'?ks[0]:'2024-01',cur=TD.slice(0,7),all=[];for(let m=a0;m<=cur&&all.length<120;m=addM(m,1))all.push(m);
+  const have=all.filter(m=>cn[m]).length;
+  return `<details style="margin-bottom:10px"><summary class="hint" style="cursor:pointer">Cobertura do histórico: ${have} de ${all.length} meses já têm lançamentos</summary><div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">${all.map(m=>`<span class="tag" style="${cn[m]?'color:var(--in)':'opacity:.55'}${inF.has(m)?';outline:1px solid var(--acc)':''}">${MES[+m.slice(5)-1]}/${m.slice(2,4)} · ${cn[m]||0}</span>`).join('')}</div><p class="hint" style="margin-top:6px">Borda azul = meses presentes neste arquivo.</p></details>`}
 function impUI(){
-  modal(`Importar ${IMP.length} lançamentos`,`<div class="row" style="margin-bottom:10px"><select id="nty" style="width:130px"><option value="expense">Despesa</option><option value="income"${NT==='income'?' selected':''}>Receita</option></select><input id="nn" placeholder="Criar nova categoria…"><button data-nc>Criar</button></div>
-  <div class="tw" style="max-height:50vh;overflow:auto"><table style="min-width:600px"><thead><tr><th><input type="checkbox" data-ka ${IMP.every(r=>r.on)?'checked':''} aria-label="Marcar todos"></th><th>Data</th><th>Descrição</th><th>Categoria</th><th class="v">Valor</th></tr></thead><tbody>${
-  IMP.map((r,i)=>`<tr><td><input type="checkbox" data-k="${i}" ${r.on?'checked':''} aria-label="Importar"></td><td>${fd(r.date)}</td><td>${esc(r.desc)}</td><td><select data-i="${i}">${opts(r.type,r.cat)}<option value="__new">＋ Nova categoria…</option></select></td><td class="v ${r.type==='income'?'in':'out'}">${brl(r.amount)}</td></tr>`).join('')}</tbody></table></div>
-  <div class="row" style="margin-top:12px"><button class="pri" data-imp>Importar selecionados</button><span class="hint">Já existentes vêm desmarcados · datas futuras entram como Previsão</span></div>`);
+  const nw=IMP.filter(r=>r.st==='new').length,dp=IMP.filter(r=>r.st==='dup').length,sm=IMP.filter(r=>r.st==='sim').length,
+    x2=IMP.filter(r=>r.xs===2&&r.st!=='dup').length,x1=IMP.filter(r=>r.xs===1&&r.st!=='dup').length,ds=IMP.map(r=>r.date).sort(),
+    per=ds.length?`${fd(ds[0])} a ${fd(ds[ds.length-1])}`:'',hasA=S.tx.some(isA),A=IMPM.anc,C=IMPM.card;
+  const bd=r=>(r.st==='dup'?'<span class="tag">Já importado</span>':r.st==='sim'?`<span class="tag fcg" title="${esc(r.ref.desc)} · ${fd(r.ref.date)}">Parecido com lançamento existente: ${esc(r.ref.desc.slice(0,22))} ${fd(r.ref.date).slice(0,5)}${isFc(r.ref)?' (previsão)':''}</span>`:'')+(r.xs===2?' <span class="tag" style="color:var(--acc)">↔ transferência própria</span>':r.xs===1?' <span class="tag" style="color:#fbbf24">↔ possível transferência</span>':'')+(r.cat===XCAT&&r.pr&&r.prn&&S.tx.includes(r.pr)&&!isX(r.pr)?` <span class="hint" title="${esc(r.pr.desc)} · ${fd(r.pr.date)}">· a contraparte já importada também será marcada</span>`:'');
+  modal(`Importar ${IMP.length} lançamentos`,`${C?'':`<div class="row" style="margin-bottom:8px;flex-wrap:wrap;gap:10px"><label style="flex:1;min-width:150px">Banco / conta deste arquivo<input data-ibk list="ibkl" value="${esc(IMPM.bank)}" placeholder="Ex.: Nubank"><datalist id="ibkl"><option>Next</option><option>Nubank</option></datalist></label><label style="flex:1;min-width:190px">Seu nome (detecta PIX entre suas contas)<input data-ime value="${esc(IMPM.me)}" placeholder="Nome como aparece nos extratos"></label></div>`}
+  <p class="hint" style="margin-bottom:8px">Período do arquivo: <b>${per}</b> · <b class="in">${nw}</b> novos · ${dp} já importados${sm?` · <span style="color:#fbbf24">${sm} parecidos com lançamentos manuais/previsões (desmarcados)</span>`:''}</p>
+  ${!C&&!hasA?`<div class="ibox" style="border-color:#fbbf2466">Dica: registre o <b>saldo final do extrato</b> abaixo (Saldo conferido). Ele fixa o saldo acumulado e continua certo conforme você importa os meses anteriores.</div>`:''}
+  ${!C&&(x1+x2)?`<div class="ibox" style="border-color:var(--acc)">↔ <b>${x2}</b> lançamento(s) marcados como transferência entre contas próprias e <b>${x1}</b> possível(is). Transferências ficam fora de receitas e despesas (contam só no saldo).<button data-xall>Marcar possíveis também</button><button data-xnone>Desmarcar todas</button></div>`:''}
+  ${C?'':`<details class="ibox"><summary style="cursor:pointer"><b>Virada de banco (Next ➔ Nubank, mai/2026): como evitar receitas e despesas falsas</b></summary><ol style="margin:8px 0 0 18px;display:grid;gap:4px"><li>Importe os dois extratos informando o banco de cada um.</li><li>Todo PIX/TED entre suas contas aparece duas vezes: saída em um extrato e entrada no outro. Marque as duas pontas com ↔ (coluna “↔”).</li><li>Preencha seu nome para detecção automática. Se uma ponta já foi importada antes, ao importar a outra o app detecta o par (mesmo valor, ±1 dia) e marca também a contraparte.</li><li>O saldo conferido, com mais de uma conta ativa, deve ser a soma dos saldos de todas elas.</li></ol></details>`}
+  ${C?'':covHTML()}
+  <div class="row" style="margin-bottom:10px"><select id="nty" style="width:130px"><option value="expense">Despesa</option><option value="income"${NT==='income'?' selected':''}>Receita</option></select><input id="nn" placeholder="Criar nova categoria…"><button data-nc>Criar</button></div>
+  <div class="tw" style="max-height:44vh;overflow:auto"><table style="min-width:700px"><thead><tr><th><input type="checkbox" data-ka ${IMP.every(r=>r.on)?'checked':''} aria-label="Marcar todos"></th><th>Data</th><th>Descrição</th><th title="Transferência entre contas próprias">↔</th><th>Categoria</th><th class="v">Valor</th></tr></thead><tbody>${
+  IMP.map((r,i)=>`<tr><td><input type="checkbox" data-k="${i}" ${r.on?'checked':''} aria-label="Importar"></td><td>${fd(r.date)}</td><td>${esc(r.desc)} ${bd(r)}</td><td><input type="checkbox" data-x="${i}" ${r.cat===XCAT?'checked':''} aria-label="Transferência própria"></td><td><select data-i="${i}">${opts(r.type,r.cat)}<option value="__new">＋ Nova categoria…</option></select></td><td class="v ${r.type==='income'?'in':'out'}">${brl(r.amount)}</td></tr>`).join('')}</tbody></table></div>
+  ${C?'':`<label class="ck" style="margin-top:10px"><input type="checkbox" data-ian ${A.on?'checked':''}> Registrar <b>saldo conferido</b> do extrato (saldo final na data):</label><div class="row" style="margin-top:6px"><input type="date" data-iand value="${esc(A.d)}"><input data-ianv placeholder="Saldo, ex.: 1.234,56" value="${esc(A.v)}"></div>`}
+  <div class="row" style="margin-top:12px"><button class="pri" data-imp>Importar selecionados</button><button data-onlynew>Só os novos</button><span class="hint">Datas futuras entram como Previsão</span></div>`);
 }
 // ---------- Delegação do modal ----------
 $('#mb').onchange=e=>{const t=e.target,d=t.dataset;
+  if(d.ibk!==undefined||d.ime!==undefined){if(d.ibk!==undefined){IMPM.bank=t.value.trim();localStorage.setItem('fin.bank',IMPM.bank)}else{IMPM.me=t.value.trim();localStorage.setItem('fin.me',IMPM.me)}IMP=prepImport(IMPM.raw);impUI();return}
+  if(d.ian!==undefined)IMPM.anc.on=t.checked;if(d.ianv!==undefined)IMPM.anc.v=t.value;if(d.iand!==undefined)IMPM.anc.d=t.value;
+  if(d.x!==undefined){const r=IMP[d.x];if(t.checked){if(r.cat!==XCAT)r.cat0=r.cat;r.cat=XCAT}else r.cat=r.cat0&&r.cat0!==XCAT?r.cat0:dflt(r.type);t.closest('tr').querySelector('select[data-i]').value=r.cat}
   if(d.ka!==undefined){IMP.forEach(r=>r.on=t.checked);document.querySelectorAll('#mb [data-k]').forEach(c=>c.checked=t.checked)}
   if(d.k)IMP[d.k].on=t.checked;
-  if(d.i){if(t.value==='__new'){const r=IMP[d.i];NI=+d.i;NT=r.type;$('#nty').value=NT;t.value=r.cat;$('#nn').focus()}else IMP[d.i].cat=t.value}};
+  if(d.i){if(t.value==='__new'){const r=IMP[d.i];NI=+d.i;NT=r.type;$('#nty').value=NT;t.value=r.cat;$('#nn').focus()}else{IMP[d.i].cat=t.value;const x=t.closest('tr').querySelector('[data-x]');if(x)x.checked=t.value===XCAT}}};
 $('#mb').onclick=async e=>{
   const b=e.target.closest('button')||e.target,ds=b.dataset;
   if('yes' in ds){md.close();ASK&&ASK();ASK=null}
   if('no' in ds)md.close();
   if('ccn' in ds){try{const f=$('#cf2').files[0],card=$('#cc').value.trim()||'Cartão',due=$('#cd').dataset.iso;if(!f||!due)return toast('Escolha o arquivo OFX e o vencimento');
-    const seen=new Set(S.tx.map(t=>t.date+t.amount+t.desc.toLowerCase())),out=[];
+    const out=[];
     parseOFX(await f.text()).filter(r=>r.date&&isFinite(r.amount)&&r.amount).forEach(r=>{
       if(r.amount>0&&/pagamento|pgto/i.test(r.desc))return;
       const type=r.amount<0?'expense':'income',am=Math.abs(r.amount),cat=guess(r.desc,type),m=r.desc.match(/(\d{1,2})\s*\/\s*(\d{1,2})\s*$/);
-      out.push({date:due,desc:r.desc,amount:am,type,cat,on:!seen.has(due+am+r.desc.toLowerCase()),note:`${card} · compra ${fd(r.date)}`});
-      if(m&&type==='expense'&&+m[1]<+m[2])for(let i=1;+m[1]+i<=+m[2];i++)out.push({date:occ({start:due,day:+due.slice(8)},i),desc:r.desc.replace(m[0],`${+m[1]+i}/${m[2]}`),amount:am,type,cat,on:true,fc:true,note:`${card} · parcela projetada`})});
-    if(!out.length)throw Error('Nenhum lançamento na fatura');IMP=out;impUI()}catch(err){toast('Erro: '+err.message)}}
+      out.push({date:due,desc:r.desc,amount:am,type,cat,key:`${card}|${due}|${r.date}|${r.fitid||''}|${am.toFixed(2)}|${nzd(r.desc)}`,note:`${card} · compra ${fd(r.date)}`});
+      if(m&&type==='expense'&&+m[1]<+m[2])for(let i=1;+m[1]+i<=+m[2];i++)out.push({date:occ({start:due,day:+due.slice(8)},i),desc:r.desc.replace(m[0],`${+m[1]+i}/${m[2]}`),amount:am,type,cat,fc:true,key:`${card}|${due}|parc${i}|${r.date}|${am.toFixed(2)}|${nzd(r.desc)}`,note:`${card} · parcela projetada`})});
+    if(!out.length)throw Error('Nenhum lançamento na fatura');IMPM.card=true;IMP=classify(out,card,'');impUI()}catch(err){toast('Erro: '+err.message)}}
   if('cfg' in ds){e.preventDefault();const cl=v=>Math.min(31,Math.max(1,Math.round(v)));S.cfg={start:cl(+$('#c1s').value||20),end:cl(+$('#c1e').value||1),gap:$('#c1g').value};sel=cycleOf({date:TD});save();md.close();render()}
-  if('imp' in ds){const l=IMP.filter(r=>r.on);l.forEach(r=>S.tx.push({id:uid(),type:r.type,desc:r.desc,amount:r.amount,date:r.date,cat:r.cat,note:r.note||'Importado do extrato',fc:!!r.fc}));save();md.close();render();toast(l.length+' lançamentos importados')}
+  if('imp' in ds){const l=IMP.filter(r=>r.on),ids=new Set(S.tx.map(t=>t.id)),mo=new Map();S.tx.forEach(t=>mo.set(t.date,Math.max(mo.get(t.date)??-1,t.ord??-1)));let n=0,sk=0,cv=0;
+    l.forEach(r=>{if(ids.has(r.id)){sk++;return}ids.add(r.id);const o=(mo.get(r.date)??-1)+1;mo.set(r.date,o);
+      if(r.cat===XCAT&&r.pr&&r.prn&&S.tx.includes(r.pr)&&!isX(r.pr)&&!isA(r.pr)){r.pr.cat=XCAT;if(r.pr.rule)r.pr.ov=true;cv++} // contraparte já importada vira transferência também
+      S.tx.push({id:r.id,type:r.type,desc:r.desc,amount:r.amount,date:r.date,cat:r.cat,note:r.note||('Importado'+(IMPM.bank&&!IMPM.card?' · '+IMPM.bank:'')),fc:!!r.fc,ord:o});n++});
+    let am='';const a2=IMPM.anc;if(!IMPM.card&&a2?.on){const v=num(a2.v);if(a2.d&&isFinite(v)){setAnchor(a2.d,v,'Saldo do extrato'+(IMPM.bank?' · '+IMPM.bank:''));am=' · saldo conferido registrado'}else am=' · saldo conferido NÃO registrado (data ou valor inválidos)'}
+    save();md.close();render();toast(`${n} importados${sk?` · ${sk} ignorados (já existiam)`:''}${cv?` · ${cv} contraparte(s) marcada(s) como transferência`:''}${am}`)}
+  if('xall' in ds){IMP.forEach(r=>{if(r.st!=='dup'&&r.xs>=1&&r.cat!==XCAT){r.cat0=r.cat;r.cat=XCAT}});impUI()}
+  if('xnone' in ds){IMP.forEach(r=>{if(r.cat===XCAT)r.cat=r.cat0&&r.cat0!==XCAT?r.cat0:dflt(r.type)});impUI()}
+  if('onlynew' in ds){IMP.forEach(r=>r.on=r.st==='new');impUI()}
+  if('anc' in ds){const d=$('#ad').value,v=num($('#av').value);if(!d||!isFinite(v))return toast('Informe a data e o saldo');if(ds.anc){S.tx=S.tx.filter(x=>x.id!==ds.anc);S.del.tx.push(ds.anc)}setAnchor(d,v,'Saldo conferido manualmente');save();md.close();render();toast('Saldo conferido salvo · '+fd(d))}
   if('nc' in ds){const n=$('#nn').value.trim(),t=$('#nty').value;if(!n)return;NT=t;const L=S.cats[t];if(!L.some(c=>c.toLowerCase()===n.toLowerCase()))L.push(n);
     const nm=L.find(c=>c.toLowerCase()===n.toLowerCase());if(NI!==null&&IMP[NI].type===t)IMP[NI].cat=nm;NI=null;save();fillC();impUI();toast(`Categoria “${nm}” criada`)}
   if(ds.pt){PT=ds.pt;perUI()}if(ds.py){PY+=+ds.py;perUI()}if(ds.cmn){CMo=addM(CMo,+ds.cmn);perUI()}
@@ -471,7 +554,7 @@ $('#mb').onclick=async e=>{
   if(ds.ct){CT=ds.ct;catUI()}
   if('cadd' in ds){const n=$('#cnn').value.trim();if(n&&!S.cats[CT].some(c=>c.toLowerCase()===n.toLowerCase())){S.cats[CT].push(n);save();fillC();render()}catUI()}
   const cr=b.closest('[data-n]');
-  if(cr){const o=cr.dataset.n,L=S.cats[CT];
+  if(cr){const o=cr.dataset.n,L=S.cats[CT];if(('cs' in ds||'cx' in ds)&&o===XCAT)return toast('Categoria reservada (transferências entre contas): não pode ser renomeada nem excluída');
     if('cs' in ds){const n=cr.querySelector('input').value.trim();if(!n||n===o)return;if(L.some(c=>c!==o&&c.toLowerCase()===n.toLowerCase()))return toast('Essa categoria já existe');
       L[L.indexOf(o)]=n;S.tx.concat(S.rules).forEach(t=>{if(t.type===CT&&t.cat===o)t.cat=n});if(CT==='expense')Object.values(S.bud).forEach(b=>{if(o in b.lim){b.lim[n]=b.lim[o];delete b.lim[o]}});save();fillC();render();catUI();toast('Categoria renomeada')}
     if('cx' in ds&&(L.length>1||toast('Mantenha ao menos uma categoria')))ask('Excluir categoria',`“${esc(o)}” sai da lista. Lançamentos que já usam esse nome continuam com ele.`,()=>{S.cats[CT]=L.filter(c=>c!==o);save();fillC();render();catUI()})}
@@ -503,7 +586,7 @@ function pbar(r){
   return `<div class="pbar"><i style="width:${r.p*w}%;background:${o?'#fb7185':'#34d399'}"></i><i style="width:${r.f*w}%;background:${o?'#fb718566':'#34d39966'}"></i></div><span class="hint ${o?'out':''}">${o?'Excedeu '+brl(T-L):'Restam '+brl(L-T)} · ${(T/L*100).toFixed(0)}%</span>`}
 function planR(full=true){
   const b=B(PM),R=grp(PM).filter(t=>t.type==='expense'),
-  rows=[...new Set([...S.cats.expense,...R.map(t=>t.cat)])].map(c=>{const g=f=>R.filter(t=>t.cat===c&&isFc(t)===f).reduce((s,t)=>s+t.amount,0);return{c,l:b.lim[c]||0,p:g(false),f:g(true)}}),
+  rows=[...new Set([...S.cats.expense,...R.map(t=>t.cat)])].filter(c=>c!==XCAT).map(c=>{const g=f=>R.filter(t=>t.cat===c&&isFc(t)===f).reduce((s,t)=>s+t.amount,0);return{c,l:b.lim[c]||0,p:g(false),f:g(true)}}),
   gp=rows.reduce((s,r)=>s+r.l,0),bal=b.inc-gp,sv=b.inc*b.pct/100,sm=k=>rows.reduce((s,r)=>s+r[k],0);
   $('#pl').textContent=longL(PM);$('#p-inc').textContent=brl(b.inc);$('#p-gp').textContent=brl(gp);$('#p-bal').textContent=brl(bal);$('#p-bal').className=bal<0?'out':'in';
   $('#p-eco').textContent=(b.inc?bal/b.inc*100:0).toFixed(2)+'%';
@@ -529,7 +612,7 @@ const RP={mode:'m',m:today().slice(0,7),a:today().slice(0,8)+'01',b:today(),fc:f
 $('#r-m').value=RP.m;setD($('#r-a'),RP.a);setD($('#r-b'),RP.b);
 function rdata(){
   let a,b;if(RP.mode==='m'){const[y,m]=RP.m.split('-').map(Number);a=RP.m+'-01';b=`${RP.m}-${pad(new Date(y,m,0).getDate())}`}else{a=RP.a;b=RP.b}
-  return{a,b,L:S.tx.filter(t=>a&&b&&t.date>=a&&t.date<=b&&(RP.fc||!isFc(t))),days:a&&b?Math.max(1,Math.round((new Date(b)-new Date(a))/864e5)+1):1}}
+  return{a,b,L:TA().filter(t=>a&&b&&t.date>=a&&t.date<=b&&(RP.fc||!isFc(t))),days:a&&b?Math.max(1,Math.round((new Date(b)-new Date(a))/864e5)+1):1}}
 const dn=t=>new Chart($(t==='income'?'#rci':'#rcd'),{type:'doughnut',data:{labels:[],datasets:[{data:[],backgroundColor:PAL,borderColor:'#101218',borderWidth:2}]},
   options:{cutout:'58%',onClick:(e,el,ch)=>{if(!el.length)return;const c=ch.data.labels[el[0].index];detail((t==='income'?'Receitas':'Despesas')+' · '+c,rdata().L.filter(x=>x.type===t&&x.cat===c))},
   plugins:{legend:{position:'right'},tooltip:{callbacks:{label:c=>` ${c.label}: ${brl(c.parsed)} · ${pc(c)}`}}}}});
@@ -594,7 +677,7 @@ function qmatch(t,q){ // todos os termos precisam bater: texto, valor ou (se tiv
   return q.every(w=>tx.includes(w)||vl.includes(w)||(/[\/-]/.test(w)&&dt.includes(w)))}
 function txRows(){
   const c=$('#fc').value,a=$('#fa').dataset.iso||'',b=$('#fb2').dataset.iso||'',v1=val($('#fv1')),v2=val($('#fv2')),q=nz($('#sq').value.replace(/r\$/gi,'')).split(/\s+/).filter(Boolean);
-  return S.tx.filter(t=>(a||b?(!a||t.date>=a)&&(!b||t.date<=b):SA&&q.length?true:inP(t))&&(fl==='all'||t.type===fl)&&(!c||t.cat===c)&&(!v1||t.amount>=v1)&&(!v2||t.amount<=v2)&&(!q.length||qmatch(t,q)))
+  return S.tx.filter(t=>(a||b?(!a||t.date>=a)&&(!b||t.date<=b):SA&&q.length?true:inP(t))&&(fl==='all'||(t.type===fl&&!isA(t)))&&(!c||t.cat===c)&&(!v1||t.amount>=v1)&&(!v2||t.amount<=v2)&&(!q.length||qmatch(t,q)))
     .sort((x,y)=>TSC[TS.k](x,y)*TS.d||chrono(y,x))}
 function confirmTx(id){ // efetiva uma previsão: tira a flag e, se a data é futura, passa para hoje (senão continuaria sendo previsão)
   const t=S.tx.find(x=>x.id===id);if(!t||!isFc(t))return;
@@ -612,11 +695,12 @@ $('#sq').addEventListener('input',()=>rq());
 $('#sqa').onclick=()=>{SA=!SA;$('#sqa').setAttribute('aria-pressed',SA);render()};
 function txSum(inc,exp,pi,pe,bal){ // painel estilo Mobills: respeita o período ativo
   const cyc=!['all','free'].includes(sel),up=t=>sel==='all'||(sel==='free'?(!to||t.date<=to):cyclesOf(t).some(c=>c<=sel));
-  const acc=S.tx.filter(t=>!isFc(t)&&up(t)).reduce((s,t)=>s+(t.type==='income'?t.amount:-t.amount),0);
+  const ro=refOff(),real=S.tx.filter(t=>!isFc(t)&&!isA(t)),acc=r2(ro.off+real.filter(up).reduce((s,t)=>s+sgn(t),0)),ini=r2(acc-real.filter(inP).reduce((s,t)=>s+sgn(t),0)),xs=real.filter(t=>isX(t)&&inP(t));
   const end=cyc?`${addM(sel,1)}-${pad(S.cfg.end)}`:sel==='free'?to:'',lim=end&&end<TD?end:TD;
   const big=v=>`<i class="cu">R$</i>${v<-0.004?'−':''}${fm(Math.abs(v))}`,put=(id,v,cl)=>{$('#'+id).innerHTML=big(v);$('#'+id).className=cl};
   put('ts-b',acc,acc<0?'out':'');put('ts-i',inc,'in');put('ts-o',exp,'out');put('ts-m',bal,bal<0?'out':bal>0?'in':'');
-  $('#ts-bh').textContent=sel==='all'?'Efetivado até hoje':'Efetivado até '+fd(lim);
+  $('#ts-bh').innerHTML=`Início do período: <b>${brl(ini)}</b> · até ${sel==='all'?'hoje':fd(lim)}<br>`+(ro.has?`Referência: saldo conferido de ${fd(ro.rd)}`:'<span style="color:var(--out)">⚠ sem saldo conferido: o saldo parte de R$ 0</span>');
+  {const xo=xs.filter(t=>t.type==='expense').reduce((s,t)=>s+t.amount,0),xi=xs.filter(t=>t.type==='income').reduce((s,t)=>s+t.amount,0);$('#ts-x').textContent=xs.length?`↔ ${xs.length} transferência(s) entre contas próprias no período (saídas ${brl(xo)} · entradas ${brl(xi)}): ficam fora de receitas e despesas, mas contam no saldo.`:''}
   $('#ts-ih').textContent=pi?'+ '+brl(pi)+' previstos':'Efetivadas no período';
   $('#ts-oh').textContent=pe?'+ '+brl(pe)+' previstos':'Efetivadas no período';
   $('#ts-ml').textContent=cyc?'Balanço mensal':'Balanço do período';
@@ -654,7 +738,7 @@ const cf=new Chart($('#cf'),{type:'line',data:{labels:Array.from({length:31},(_,
 $('#ft-h').onclick=e=>{const b=e.target.closest('[data-s]');if(!b)return;const k=b.dataset.s;FS=FS.k===k?{k,d:-FS.d}:{k,d:k==='v'?-1:1};dashR()};
 function dashR(){
   $('#dp-sum').innerHTML=perfCards(/^\d{4}-\d{2}$/.test(sel)?sel:cycleOf({date:TD}));
-  const b=S.tx.filter(inP),wd=Array(31).fill(0),dm={};
+  const b=TA().filter(inP),wd=Array(31).fill(0),dm={};
   b.filter(t=>t.type==='expense'&&!isFc(t)).forEach(t=>{wd[+t.date.slice(8)-1]+=t.amount;dm[t.date]=(dm[t.date]||0)+t.amount});
   cf.data.datasets[0].data=wd;cf.update();
   $('#ft-h').querySelectorAll('[data-s]').forEach(b=>{const a=FS.k===b.dataset.s;b.querySelector('i').textContent=a?(FS.d>0?'▲':'▼'):'↕';b.classList.toggle('on',a)});
@@ -677,7 +761,7 @@ $('[data-view=proj]').addEventListener('change',()=>projR());
 function projR(){
   const cv=$('#pj-c').value;$('#pj-c').innerHTML='<option value="">Todas as categorias</option>'+[...new Set([...S.cats.income,...S.cats.expense])].map(c=>`<option${c===cv?' selected':''}>${esc(c)}</option>`).join('');
   const a=$('#pj-a').dataset.iso,b=$('#pj-b').dataset.iso,g=new Map(),ks=[],dy=PG==='d';
-  S.tx.forEach(t=>{if((!cv||t.cat===cv)&&t.date>=a&&t.date<=b){const k=dy?t.date:cycleOf(t);(g.get(k)||g.set(k,[]).get(k)).push(t)}});
+  TA().forEach(t=>{if((!cv||t.cat===cv)&&t.date>=a&&t.date<=b){const k=dy?t.date:cycleOf(t);(g.get(k)||g.set(k,[]).get(k)).push(t)}});
   if(dy){for(let d=a;d&&d<=b&&ks.length<366;d=dAdd(d,1))ks.push(d)}else for(let k=cycleOf({date:a});k<=cycleOf({date:b})&&ks.length<36;k=addM(k,1))ks.push(k);
   const col=(t,f)=>ks.map(k=>sum((g.get(k)||[]).filter(x=>isFc(x)===f),t)),I=col('income',false),PI=col('income',true),O=col('expense',false),PO=col('expense',true),add=v=>v.reduce((x,y)=>x+y,0);
   [I,PI,O,PO].forEach((d,i)=>pj.data.datasets[i].data=d);pj.data.labels=ks.map(dy?(d=>fd(d).slice(0,5)):shortL);pj.data.datasets.forEach(s=>{s.pointRadius=ks.length>45?0:2;s.tension=dy?.2:.35});pj.update();
@@ -697,15 +781,15 @@ function reply(raw){
   const q=nz(raw),y=TD.slice(0,4),ds=[...q.matchAll(/(\d{1,2})\s*(?:de\s+)?(janeiro|fevereiro|marco|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)/g)].map(m=>`${y}-${pad(MN.indexOf(m[2])+1)}-${pad(+m[1])}`);
   const inc=/receb|receita|entrada|ganh/.test(q)&&!/despesa|gast|pagar|conta/.test(q),type=inc?'income':'expense',pend=/pagar|venc|pendente|prevista|receber/.test(q);
   if(ds.length){let a=ds[0],b=ds[1];if(!b){if(/antes/.test(q)){b=a;a='1900-01-01'}else b='9999-12-31'}if(/depois|apos/.test(q))a=dAdd(a,1);if(/antes/.test(q)&&ds[1])b=dAdd(b,-1);
-    const l=S.tx.filter(t=>t.type===type&&t.date>=a&&t.date<=b&&(!pend||isFc(t))).sort((x,z)=>x.date.localeCompare(z.date));
+    const l=TA().filter(t=>t.type===type&&t.date>=a&&t.date<=b&&(!pend||isFc(t))).sort((x,z)=>x.date.localeCompare(z.date));
     return l.length?`${inc?'Receitas':'Despesas'}${pend?' pendentes':''} entre ${fd(a)} e ${fd(b)}: <b>${l.length}</b> lançamento(s), total <b class="${inc?'in':'out'}">${brl(sum(l,type))}</b>${lst(l)}`:`Não encontrei ${inc?'receitas':'despesas'}${pend?' pendentes':''} nesse intervalo.`}
-  const base=S.tx.filter(t=>inP(t)&&t.type==='expense'),tot=sum(base,'expense');
+  const base=TA().filter(t=>inP(t)&&t.type==='expense'),tot=sum(base,'expense');
   if(/%|percent|represent/.test(q)){
     const cs=S.cats.expense.filter(c=>q.includes(nz(c))),ws=q.split(/[^a-z]+/).filter(w=>w.length>=5&&!/gastos|gerais|custo|quanto|quantos|represent|percent|despesa|minhas|meus|total|mensal|periodo|sobre/.test(w));
     const l=base.filter(t=>cs.includes(t.cat)||ws.some(w=>nz(t.desc+' '+(t.note||'')+' '+t.cat).includes(w.slice(0,Math.max(5,w.length-2)))));
     return l.length&&tot?`<b>${(sum(l,'expense')/tot*100).toFixed(1)}%</b> das despesas ${lbl()} (${brl(sum(l,'expense'))} de ${brl(tot)})${lst(l)}`:`Não achei lançamentos ou categorias parecidos com “${esc(raw)}” ${lbl()}. Categorias de despesa: ${S.cats.expense.map(esc).join(', ')}.`}
   if(/saldo|resumo|gargalo|maior|situac|mes/.test(q)){
-    const R=S.tx.filter(t=>inP(t)&&!isFc(t)),i2=sum(R,'income'),e2=sum(R,'expense'),m={};base.forEach(t=>m[t.cat]=(m[t.cat]||0)+t.amount);
+    const R=TA().filter(t=>inP(t)&&!isFc(t)),i2=sum(R,'income'),e2=sum(R,'expense'),m={};base.forEach(t=>m[t.cat]=(m[t.cat]||0)+t.amount);
     return `Período ${lbl()}: receitas <b class="in">${brl(i2)}</b>, despesas <b class="out">${brl(e2)}</b>, saldo <b>${brl(i2-e2)}</b>.<br>Maiores gargalos: ${Object.entries(m).sort((x,z)=>z[1]-x[1]).slice(0,3).map(([c,v])=>`${esc(c)} (${brl(v)}, ${(v/tot*100).toFixed(0)}%)`).join(' · ')||'—'}.`}
   return 'Posso listar lançamentos por datas (“despesas que vencem depois do dia 20 de novembro e antes de 01 de dezembro”), calcular % de uma categoria ou palavra (“quanto % representam gastos por impulso?”) e dar um resumo do período.'}
 const GREET='Olá! Pergunte sobre vencimentos, percentuais por categoria ou peça um resumo do período.',LOGS=['#ch-log','#fl-log'];
@@ -729,25 +813,32 @@ const sy=t=>{const e=$('#sy');if(e)e.textContent=t};
 const push=()=>sb?(chain=chain.then(doPush,doPush)):Promise.resolve(true); // pushes em fila: nunca concorrentes
 const chunk=(a,n)=>Array.from({length:Math.ceil(a.length/n)},(_,i)=>a.slice(i*n,i*n+n));
 const run=async p=>{const{error}=await p;if(error)throw error};
-let NOORD=false; // true se a coluna sort_order ainda não existe no Supabase: a ordem fica salva só neste aparelho
+let NOORD=localStorage.getItem('fin.noord')==='1'; // true se a coluna sort_order ainda não existe no Supabase: a ordem fica salva só neste aparelho
+const PCH=200,LAST={}; // PCH = linhas por requisição (payload pequeno e seguro); LAST evita reenviar tabelas pequenas que não mudaram
+const hsh=s=>{let h=5381;for(let i=0;i<s.length;i++)h=(h*33^s.charCodeAt(i))>>>0;return h.toString(36)};
+const sigOf=t=>hsh(JSON.stringify([t.type,t.desc,t.amount,t.date,t.cat,t.note||'',t.rule||null,t.idx??null,!!t.ov,!!t.fc,NOORD?null:(t.ord??null)]));
+const retry=async(fn,n=3)=>{for(let i=0;;i++){try{return await fn()}catch(e){const m=String(e.message||e);if(i>=n-1||/sort_order|violates|permission|JWT|row-level|duplicate/i.test(m))throw e;await new Promise(r=>setTimeout(r,500*2**i))}}};
 const upT=async(T,c)=>{const f=r=>{if(!NOORD)return r;const{sort_order,...x}=r;return x};
-  try{await run(T.upsert(c.map(f)))}catch(e){if(!NOORD&&/sort_order/.test(e.message||e)){NOORD=true;toast('Ordem do dia salva só neste aparelho. Para sincronizar, rode no Supabase: alter table transactions add column sort_order integer;');await run(T.upsert(c.map(f)))}else throw e}};
+  try{await run(T.upsert(c.map(f)))}catch(e){if(!NOORD&&/sort_order/.test(e.message||e)){NOORD=true;try{localStorage.setItem('fin.noord','1')}catch{}toast('Ordem do dia salva só neste aparelho. Para sincronizar, rode no Supabase: alter table transactions add column sort_order integer;');await run(T.upsert(c.map(f)))}else throw e}};
 async function doPush(){
   if(!sb)return true;
   const v=ver,dt=new Set(S.del.tx),dr=new Set(S.del.rules);
   try{sy('Sincronizando…');const u=await uidSb(),T=sb.from('transactions'),R=sb.from('recurrences');
-    for(const c of chunk([...dt],100))await run(T.delete().in('id',c));
-    for(const c of chunk([...dr],100))await run(R.delete().in('id',c));
+    for(const c of chunk([...dt],100))await retry(()=>run(T.delete().in('id',c)));
+    for(const c of chunk([...dr],100))await retry(()=>run(R.delete().in('id',c)));
+    dt.forEach(id=>delete S.sig[id]);
+    const sg=new Map(),dirty=S.tx.filter(t=>{const g=sigOf(t);if(S.sig[t.id]===g)return false;sg.set(t.id,g);return true}); // só o que mudou desde o último envio
     const ru=S.rules.map(r=>({id:r.id,user_id:u,type:r.type,description:r.desc,amount:r.amount,category:r.cat,note:r.note||'',day:r.day,start_date:r.start,repeats:r.n,skip:r.skip})),
-      tx=S.tx.map(t=>({id:t.id,user_id:u,type:t.type,description:t.desc,amount:t.amount,date:t.date,category:t.cat,note:t.note||'',rule_id:t.rule||null,rule_idx:t.idx??null,overridden:!!t.ov,forecast:!!t.fc,sort_order:t.ord??null})),
+      tx=dirty.map(t=>({id:t.id,user_id:u,type:t.type,description:t.desc,amount:t.amount,date:t.date,category:t.cat,note:t.note||'',rule_id:t.rule||null,rule_idx:t.idx??null,overridden:!!t.ov,forecast:!!t.fc,sort_order:t.ord??null})),
       ca=['income','expense'].flatMap(t=>S.cats[t].map(name=>({user_id:u,type:t,name}))),
       bu=Object.entries(S.bud).map(([m,b])=>({user_id:u,month:m,income:b.inc||0,saving_pct:b.pct||0,limits:b.lim||{}}));
-    if(ru.length)await run(R.upsert(ru));
-    if(bu.length)await run(sb.from('budgets').upsert(bu,{onConflict:'user_id,month'}));
-    for(const c of chunk(tx,500))await upT(T,c);
-    await run(sb.from('categories').upsert(ca,{onConflict:'user_id,type,name'}));
-    const{data,error}=await sb.from('categories').select('type,name');if(error)throw error;
-    for(const r of data)if(!ca.some(c=>c.type===r.type&&c.name===r.name))await run(sb.from('categories').delete().eq('type',r.type).eq('name',r.name));
+    const rs=JSON.stringify(ru),bs=JSON.stringify(bu),cs=JSON.stringify(ca);
+    if(ru.length&&rs!==LAST.ru){await retry(()=>run(R.upsert(ru)));LAST.ru=rs}
+    if(bu.length&&bs!==LAST.bu){await retry(()=>run(sb.from('budgets').upsert(bu,{onConflict:'user_id,month'})));LAST.bu=bs}
+    let n=0;for(const c of chunk(tx,PCH)){await retry(()=>upT(T,c));c.forEach(r=>S.sig[r.id]=sg.get(r.id));n+=c.length;sy(`Enviando ${n}/${tx.length}…`);try{localStorage.setItem(K,JSON.stringify(S))}catch{}} // marca cada lote como enviado: se falhar, retoma de onde parou
+    if(cs!==LAST.ca){await retry(()=>run(sb.from('categories').upsert(ca,{onConflict:'user_id,type,name'})));
+      const{data,error}=await sb.from('categories').select('type,name');if(error)throw error;
+      for(const r of data)if(!ca.some(c=>c.type===r.type&&c.name===r.name))await retry(()=>run(sb.from('categories').delete().eq('type',r.type).eq('name',r.name)));LAST.ca=cs}
     S.del.tx=S.del.tx.filter(x=>!dt.has(x));S.del.rules=S.del.rules.filter(x=>!dr.has(x));if(ver===v)S.dirty=false;
     try{localStorage.setItem(K,JSON.stringify(S))}catch{}
     sy('Sincronizado ✓');return true}
@@ -763,9 +854,11 @@ async function pull(){
   if(!t.length&&!r.length&&!c.length&&!b.length){await push();return toast(S.tx.length?'Dados locais enviados para a nuvem':'Conta nova pronta para uso')} // base vazia / novo usuário
   let LO={};try{LO=JSON.parse(localStorage.getItem('fin.ord')||'{}')}catch{}
   S.tx=t.map(x=>({id:x.id,type:x.type,desc:x.description,amount:+x.amount,date:x.date,cat:x.category,note:x.note,rule:x.rule_id,idx:x.rule_idx,ov:x.overridden,fc:x.forecast,ord:x.sort_order??LO[x.id]}));
+  if(NOORD&&t.length&&'sort_order' in t[0]){NOORD=false;localStorage.removeItem('fin.noord')}
+  S.sig={};S.tx.forEach(t=>S.sig[t.id]=sigOf(t));for(const k in LAST)delete LAST[k]; // nuvem == local neste instante
   S.rules=r.map(x=>({id:x.id,type:x.type,desc:x.description,amount:+x.amount,cat:x.category,note:x.note,day:x.day,start:x.start_date,n:x.repeats,skip:x.skip||[]}));
   S.bud=Object.fromEntries(b.map(x=>[x.month,{inc:+x.income,pct:+x.saving_pct,lim:x.limits||{}}]));
-  ['income','expense'].forEach(k=>{const l=c.filter(x=>x.type===k).map(x=>x.name);if(l.length)S.cats[k]=l}); // nunca deixa lista vazia
+  ['income','expense'].forEach(k=>{const l=c.filter(x=>x.type===k).map(x=>x.name);if(l.length)S.cats[k]=l});fixCats(S); // nunca deixa lista vazia; garante a categoria reservada
   S.dirty=false;gen();try{localStorage.setItem(K,JSON.stringify(S))}catch{}render();sy('Sincronizado ✓')
 }
 // ---------- Rede de segurança e ciclo de vida ----------
