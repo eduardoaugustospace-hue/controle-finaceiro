@@ -249,8 +249,8 @@ const TA=()=>S.tx.filter(t=>!isSp(t)); // base de totais: sem transferências pr
 let DF={},REFA=null;
 // Saldo acumulado: todos os lançamentos em ordem cronológica, calibrado pelo "saldo conferido" MAIS RECENTE.
 // Assim, importar meses antigos depois não desloca os saldos dos meses novos (o ponto de referência é fixo).
-// Referência = saldo conferido mais recente que JÁ ocorreu (data <= hoje). Só lançamentos efetivados (não previstos) entram na conta.
-function refPt(){const A=S.tx.filter(t=>isA(t)&&t.date<=TD).sort(chrono),R=A[A.length-1]||null;
+// Referência = saldo conferido MAIS RECENTE (qualquer data, como na versão anterior). Só lançamentos efetivados (não previstos) entram na conta.
+function refPt(){const A=S.tx.filter(isA).sort(chrono),R=A[A.length-1]||null;
   return{R,off:R?r2(sgn(R)-S.tx.filter(t=>!isA(t)&&!isFc(t)&&!nb(t)&&chrono(t,R)<0).reduce((s,t)=>r2(s+sgn(t)),0)):0}}
 function refOff(){const{R,off}=refPt();return{off,has:!!R,rd:R?R.date:''}}
 function balAll(bm){const{R,off}=refPt();let e=0,f=0;DF={};REFA=R?R.id:null;
